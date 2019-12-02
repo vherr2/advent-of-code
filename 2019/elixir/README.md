@@ -1,10 +1,12 @@
-# Advent of Code Elixir Starter
+# Source
+https://github.com/mhanberg/advent-of-code-elixir-starter
 
-A batteries included starter pack for participating in [Advent of Code](https://www.adventofcode.com) using Elixir!
+# Related
+[Advent of Code](https://www.adventofcode.com)
 
 ## Usage
 
-There are 25 modules, 25 tests, and 50 mix tasks. 
+There are 25 modules, 25 tests, and 50 mix tasks.
 
 1. Fill in the tests with the example solutions.
 1. Write your implementation.
@@ -29,7 +31,7 @@ defmodule AdventOfCode.Day01Test do
 
   @tag :skip # Make sure to remove to run your test.
   test "part1" do
-    input = nil 
+    input = nil
     result = part1(input)
 
     assert result
@@ -37,7 +39,7 @@ defmodule AdventOfCode.Day01Test do
 
   @tag :skip # Make sure to remove to run your test.
   test "part2" do
-    input = nil 
+    input = nil
     result = part2(input)
 
     assert result
@@ -62,17 +64,5 @@ defmodule Mix.Tasks.D01.P1 do
         |> part1()
         |> IO.inspect(label: "Part 1 Results")
   end
-end   
-```
-
-## Installation
-
-```bash
-# clone
-$ git clone git@github.com:mhanberg/advent-of-code-elixir-starter.git advent-of-code
-$ cd advent-of-code
-
-# Reinitialize your git repo
-$ rm -rf .git
-$ git init
+end
 ```
