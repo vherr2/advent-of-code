@@ -18,6 +18,7 @@ defmodule AdventOfCode.Day01 do
   end
 
   defp fuel_needed2(mass) when mass < 9, do: 0
+
   defp fuel_needed2(mass) do
     initial =
       mass
