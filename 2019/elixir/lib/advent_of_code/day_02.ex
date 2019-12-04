@@ -1,5 +1,4 @@
 defmodule AdventOfCode.Day02 do
-
   @output 19_690_720
 
   def part1(args) do
@@ -15,9 +14,11 @@ defmodule AdventOfCode.Day02 do
   end
 
   defp find_noun_and_verb(int_list, noun \\ 0, verb \\ 0)
+
   defp find_noun_and_verb(int_list, noun, 99) do
     find_noun_and_verb(int_list, noun + 1, 0)
   end
+
   defp find_noun_and_verb(int_list, noun, verb) do
     output =
       int_list
@@ -44,6 +45,7 @@ defmodule AdventOfCode.Day02 do
   end
 
   defp apply_opcodes(vals, [99 | _rest]), do: vals
+
   defp apply_opcodes(vals, [op, a, b, c | rest]) do
     left = Map.fetch!(vals, a)
     right = Map.fetch!(vals, b)
@@ -57,5 +59,4 @@ defmodule AdventOfCode.Day02 do
 
   defp new_val(1, left, right), do: left + right
   defp new_val(2, left, right), do: left * right
-
 end
