@@ -75,7 +75,7 @@ defmodule Instruction do
 end
 
 defmodule Intcode do
-  defstruct idx: 0, program: [], opts: []
+  defstruct idx: 0, halted: false, program: [], opts: []
 
   @debug_mode false
 
@@ -85,6 +85,7 @@ defmodule Intcode do
     run(%Intcode{program: int_list, opts: intcode_opts})
   end
 
+  defp run(intcode = %Intcode{halted: true}), do: intcode
   defp run(intcode = %Intcode{program: program, idx: idx}) when idx > length(program), do: intcode
 
   defp run(intcode) do
@@ -249,6 +250,9 @@ defmodule Intcode do
 
     %{intcode | program: new_program, idx: intcode.idx + ins.size}
   end
+
+  # HALT
+  defp execute(intcode, %Instruction{opcode: 99}), do: %{intcode | halted: true}
 
   defp fetch(_vals, {:immediate, value}), do: value
   defp fetch(program, {:position, value}), do: Enum.at(program, value)
