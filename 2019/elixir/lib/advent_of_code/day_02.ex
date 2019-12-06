@@ -4,6 +4,7 @@ defmodule AdventOfCode.Day02 do
   def part1(args) do
     args
     |> Intcode.intcode()
+    |> Map.fetch!(:program)
     |> Enum.at(0)
   end
 
@@ -24,6 +25,7 @@ defmodule AdventOfCode.Day02 do
       int_list
       |> replace_noun_and_verb(noun, verb)
       |> Intcode.intcode()
+      |> Map.fetch!(:program)
       |> Enum.at(0)
 
     if output == @output do
