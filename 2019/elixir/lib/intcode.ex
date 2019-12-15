@@ -75,12 +75,12 @@ defmodule Instruction do
 end
 
 defmodule Intcode do
-  defstruct idx: 0, halted: false, program: [], opts: []
+  defstruct [:output, idx: 0, halted: false, program: [], opts: []]
 
-  @debug_mode false
+  @debug_mode true
 
   def intcode(int_list, opts \\ []) do
-    intcode_opts = Keyword.merge(opts, debug: @debug_mode)
+    intcode_opts = Keyword.merge([debug: @debug_mode, input: []], opts)
 
     run(%Intcode{program: int_list, opts: intcode_opts})
   end
@@ -111,7 +111,7 @@ defmodule Intcode do
 
     new_val = left + right
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.inspect("ADD #{inspect(a)} (#{left}) and #{inspect(b)} (#{right})")
       IO.inspect("STORE #{new_val} at #{inspect(c)}")
     end
@@ -131,7 +131,7 @@ defmodule Intcode do
 
     new_val = left * right
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.inspect("MULT #{inspect(a)} (#{left}) and #{inspect(b)} (#{right})")
       IO.inspect("STORE #{new_val} at #{inspect(c)}")
     end
@@ -144,31 +144,38 @@ defmodule Intcode do
   # LOAD
   defp execute(intcode, ins = %Instruction{opcode: 03}) do
     program = intcode.program
-    input = Keyword.fetch!(intcode.opts, :input)
+
+    [input | rest] =
+      intcode.opts
+      |> Keyword.fetch!(:input)
+      |> maybe_prompt()
+
     [a] = ins.params
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("LOAD #{input} to #{fetch(program, a)}")
     end
 
     new_program = List.replace_at(program, fetch(program, a), input)
 
-    %{intcode | program: new_program, idx: intcode.idx + ins.size}
+    %{intcode | program: new_program, idx: intcode.idx + ins.size, opts: Keyword.put(intcode.opts, :input, rest)}
   end
 
   # READ
   defp execute(intcode, ins = %Instruction{opcode: 04}) do
     [a] = ins.params
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("READ #{inspect(a)}")
     end
 
-    intcode.program
-    |> fetch(a)
-    |> IO.inspect()
+    output = fetch(intcode.program, a)
 
-    %{intcode | idx: intcode.idx + ins.size}
+    if Keyword.fetch!(intcode.opts, :debug) do
+      IO.puts("READ #{output}")
+    end
+
+    %{intcode | idx: intcode.idx + ins.size, output: output}
   end
 
   # JNZ
@@ -179,7 +186,7 @@ defmodule Intcode do
     a_val = fetch(program, a)
     b_val = fetch(program, b)
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("JNZ #{inspect(a)} (#{a_val}) TO #{inspect(b)} (#{b_val})")
     end
 
@@ -198,7 +205,7 @@ defmodule Intcode do
     a_val = fetch(program, a)
     b_val = fetch(program, b)
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("JZ #{inspect(a)} (#{a_val}) TO #{inspect(b)} (#{b_val})")
     end
 
@@ -220,7 +227,7 @@ defmodule Intcode do
 
     new_val = if a_val < b_val, do: 1, else: 0
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("LT #{inspect(a)} (#{a_val}), #{inspect(b)} (#{b_val})")
       IO.puts("STORE #{new_val} at #{inspect(c)} (#{c_val})")
     end
@@ -241,7 +248,7 @@ defmodule Intcode do
 
     new_val = if a_val == b_val, do: 1, else: 0
 
-    if Keyword.get(intcode.opts, :debug, false) do
+    if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("EQ #{inspect(a)} (#{a_val}), #{inspect(b)} (#{b_val})")
       IO.puts("STORE #{new_val} at #{inspect(c)} (#{c_val})")
     end
@@ -256,4 +263,13 @@ defmodule Intcode do
 
   defp fetch(_vals, {:immediate, value}), do: value
   defp fetch(program, {:position, value}), do: Enum.at(program, value)
+
+  defp maybe_prompt([]) do
+    "Input: "
+    |> Mix.Shell.IO.prompt()
+    |> String.trim()
+    |> String.to_integer()
+    |> List.wrap()
+  end
+  defp maybe_prompt(input), do: input
 end

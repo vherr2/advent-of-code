@@ -6,8 +6,11 @@ defmodule AdventOfCode.Day05 do
       |> Mix.Shell.IO.prompt()
       |> String.trim()
       |> String.to_integer()
+      |> List.wrap()
 
-    Intcode.intcode(args, input: system_id)
+    args
+    |> Intcode.intcode(input: system_id)
+    |> Map.fetch!(:output)
   end
 
   def part2(args) do
@@ -17,7 +20,10 @@ defmodule AdventOfCode.Day05 do
       |> Mix.Shell.IO.prompt()
       |> String.trim()
       |> String.to_integer()
+      |> List.wrap()
 
-    Intcode.intcode(args, input: system_id)
+    args
+    |> Intcode.intcode(input: system_id)
+    |> Map.fetch!(:output)
   end
 end
