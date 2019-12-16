@@ -275,13 +275,4 @@ defmodule Intcode do
 
   defp fetch(_vals, {:immediate, value}), do: value
   defp fetch(program, {:position, value}), do: Enum.at(program, value)
-
-  # defp maybe_prompt([]) do
-  #   "Input: "
-  #   |> Mix.Shell.IO.prompt()
-  #   |> String.trim()
-  #   |> String.to_integer()
-  #   |> List.wrap()
-  # end
-  # defp maybe_prompt(input), do: input
 end
