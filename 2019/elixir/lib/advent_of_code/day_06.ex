@@ -1,5 +1,4 @@
 defmodule AdventOfCode.Day06 do
-
   @root :COM
   @you :YOU
   @santa :SAN
@@ -34,6 +33,7 @@ defmodule AdventOfCode.Day06 do
   end
 
   defp orbit_distance(orbits, key \\ @root, depth \\ 0)
+
   defp orbit_distance(orbits, key, depth) do
     orbits
     |> Keyword.get_values(key)
@@ -45,6 +45,7 @@ defmodule AdventOfCode.Day06 do
 
   defp full_traversal(orbits, src \\ @root, dest)
   defp full_traversal(_orbits, dest, dest), do: [dest]
+
   defp full_traversal(orbits, src, dest) do
     orbits
     |> Keyword.get_values(src)
