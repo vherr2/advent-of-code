@@ -75,30 +75,33 @@ defmodule Instruction do
 end
 
 defmodule Intcode do
-  defstruct [:output, idx: 0, halted: false, program: [], opts: []]
+  defstruct [:output, idx: 0, halted: false, paused: false, program: [], opts: []]
 
-  @debug_mode true
+  @debug_mode false
+  def intcode(instructions, opts \\ [])
 
-  def intcode(int_list, opts \\ []) do
+  def intcode(intcode = %Intcode{}, opts) do
+    intcode_opts = Keyword.merge([debug: @debug_mode, input: []], opts)
+
+    run(%{intcode | paused: false, opts: intcode_opts})
+  end
+
+  def intcode(int_list, opts) do
     intcode_opts = Keyword.merge([debug: @debug_mode, input: []], opts)
 
     run(%Intcode{program: int_list, opts: intcode_opts})
   end
 
   defp run(intcode = %Intcode{halted: true}), do: intcode
+  defp run(intcode = %Intcode{paused: true}), do: intcode
   defp run(intcode = %Intcode{program: program, idx: idx}) when idx > length(program), do: intcode
 
   defp run(intcode) do
     instruction = Instruction.parse_instruction(intcode)
 
-    # TODO: Handle this as a case of execute?
-    if instruction.opcode == 99 do
-      intcode
-    else
-      intcode
-      |> execute(instruction)
-      |> run()
-    end
+    intcode
+    |> execute(instruction)
+    |> run()
   end
 
   # ADD
@@ -145,20 +148,29 @@ defmodule Intcode do
   defp execute(intcode, ins = %Instruction{opcode: 03}) do
     program = intcode.program
 
-    [input | rest] =
-      intcode.opts
-      |> Keyword.fetch!(:input)
-      |> maybe_prompt()
+    input = Keyword.fetch!(intcode.opts, :input)
 
-    [a] = ins.params
+    # Pause
+    if input == [] do
+      %{intcode | paused: true}
+    else
+      [next | rest] = input
 
-    if Keyword.fetch!(intcode.opts, :debug) do
-      IO.puts("LOAD #{input} to #{fetch(program, a)}")
+      [a] = ins.params
+
+      if Keyword.fetch!(intcode.opts, :debug) do
+        IO.puts("LOAD #{next} to #{fetch(program, a)}")
+      end
+
+      new_program = List.replace_at(program, fetch(program, a), next)
+
+      %{
+        intcode
+        | program: new_program,
+          idx: intcode.idx + ins.size,
+          opts: Keyword.put(intcode.opts, :input, rest)
+      }
     end
-
-    new_program = List.replace_at(program, fetch(program, a), input)
-
-    %{intcode | program: new_program, idx: intcode.idx + ins.size, opts: Keyword.put(intcode.opts, :input, rest)}
   end
 
   # READ
@@ -264,12 +276,12 @@ defmodule Intcode do
   defp fetch(_vals, {:immediate, value}), do: value
   defp fetch(program, {:position, value}), do: Enum.at(program, value)
 
-  defp maybe_prompt([]) do
-    "Input: "
-    |> Mix.Shell.IO.prompt()
-    |> String.trim()
-    |> String.to_integer()
-    |> List.wrap()
-  end
-  defp maybe_prompt(input), do: input
+  # defp maybe_prompt([]) do
+  #   "Input: "
+  #   |> Mix.Shell.IO.prompt()
+  #   |> String.trim()
+  #   |> String.to_integer()
+  #   |> List.wrap()
+  # end
+  # defp maybe_prompt(input), do: input
 end
