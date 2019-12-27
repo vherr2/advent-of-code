@@ -1,8 +1,6 @@
 defmodule Instruction do
   defstruct [:opcode, params: [], size: 1]
 
-  @write_ops [01, 02, 03, 07, 08]
-
   def parse_instruction(intcode) do
     opcode =
       intcode.program
@@ -23,7 +21,6 @@ defmodule Instruction do
       intcode.program
       |> Enum.at(intcode.idx)
       |> param_modes(param_count)
-      |> swap_write_mode(ins)
 
     %{ins | params: Enum.zip(parameter_modes, params), size: param_count + 1}
   end
@@ -36,6 +33,7 @@ defmodule Instruction do
   defp param_count(%__MODULE__{opcode: 06}), do: 2
   defp param_count(%__MODULE__{opcode: 07}), do: 3
   defp param_count(%__MODULE__{opcode: 08}), do: 3
+  defp param_count(%__MODULE__{opcode: 09}), do: 1
   defp param_count(%__MODULE__{opcode: 99}), do: 0
 
   defp param_modes(instruction, param_count) do
@@ -60,22 +58,19 @@ defmodule Instruction do
   defp modes(mode_list) when is_list(mode_list), do: Enum.map(mode_list, &modes/1)
   defp modes(0), do: :position
   defp modes(1), do: :immediate
-
-  defp swap_write_mode(params, ins) do
-    if ins.opcode in @write_ops do
-      params
-      |> Enum.reverse()
-      |> tl()
-      |> List.insert_at(0, :immediate)
-      |> Enum.reverse()
-    else
-      params
-    end
-  end
+  defp modes(2), do: :relative
 end
 
 defmodule Intcode do
-  defstruct [:output, idx: 0, halted: false, paused: false, program: [], opts: []]
+  defstruct [
+    :output,
+    idx: 0,
+    relative_base: 0,
+    halted: false,
+    paused: false,
+    program: [],
+    opts: []
+  ]
 
   @debug_mode false
   def intcode(instructions, opts \\ [])
@@ -106,11 +101,10 @@ defmodule Intcode do
 
   # ADD
   defp execute(intcode, ins = %Instruction{opcode: 01}) do
-    program = intcode.program
     [a, b, c] = ins.params
 
-    left = fetch(program, a)
-    right = fetch(program, b)
+    left = fetch(intcode, a)
+    right = fetch(intcode, b)
 
     new_val = left + right
 
@@ -119,18 +113,17 @@ defmodule Intcode do
       IO.inspect("STORE #{new_val} at #{inspect(c)}")
     end
 
-    new_program = List.replace_at(program, fetch(program, c), new_val)
+    new_program = write(intcode, c, new_val)
 
     %{intcode | program: new_program, idx: intcode.idx + ins.size}
   end
 
   # MULT
   defp execute(intcode, ins = %Instruction{opcode: 02}) do
-    program = intcode.program
     [a, b, c] = ins.params
 
-    left = fetch(program, a)
-    right = fetch(program, b)
+    left = fetch(intcode, a)
+    right = fetch(intcode, b)
 
     new_val = left * right
 
@@ -139,15 +132,13 @@ defmodule Intcode do
       IO.inspect("STORE #{new_val} at #{inspect(c)}")
     end
 
-    new_program = List.replace_at(program, fetch(program, c), new_val)
+    new_program = write(intcode, c, new_val)
 
     %{intcode | program: new_program, idx: intcode.idx + ins.size}
   end
 
   # LOAD
   defp execute(intcode, ins = %Instruction{opcode: 03}) do
-    program = intcode.program
-
     input = Keyword.fetch!(intcode.opts, :input)
 
     # Pause
@@ -159,10 +150,10 @@ defmodule Intcode do
       [a] = ins.params
 
       if Keyword.fetch!(intcode.opts, :debug) do
-        IO.puts("LOAD #{next} to #{fetch(program, a)}")
+        IO.puts("LOAD #{next} to #{fetch(intcode, a)}")
       end
 
-      new_program = List.replace_at(program, fetch(program, a), next)
+      new_program = write(intcode, a, next)
 
       %{
         intcode
@@ -177,11 +168,7 @@ defmodule Intcode do
   defp execute(intcode, ins = %Instruction{opcode: 04}) do
     [a] = ins.params
 
-    if Keyword.fetch!(intcode.opts, :debug) do
-      IO.puts("READ #{inspect(a)}")
-    end
-
-    output = fetch(intcode.program, a)
+    output = fetch(intcode, a)
 
     if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("READ #{output}")
@@ -192,11 +179,10 @@ defmodule Intcode do
 
   # JNZ
   defp execute(intcode, ins = %Instruction{opcode: 05}) do
-    program = intcode.program
     [a, b] = ins.params
 
-    a_val = fetch(program, a)
-    b_val = fetch(program, b)
+    a_val = fetch(intcode, a)
+    b_val = fetch(intcode, b)
 
     if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("JNZ #{inspect(a)} (#{a_val}) TO #{inspect(b)} (#{b_val})")
@@ -211,11 +197,10 @@ defmodule Intcode do
 
   # JZ
   defp execute(intcode, ins = %Instruction{opcode: 06}) do
-    program = intcode.program
     [a, b] = ins.params
 
-    a_val = fetch(program, a)
-    b_val = fetch(program, b)
+    a_val = fetch(intcode, a)
+    b_val = fetch(intcode, b)
 
     if Keyword.fetch!(intcode.opts, :debug) do
       IO.puts("JZ #{inspect(a)} (#{a_val}) TO #{inspect(b)} (#{b_val})")
@@ -230,12 +215,11 @@ defmodule Intcode do
 
   # LT
   defp execute(intcode, ins = %Instruction{opcode: 07}) do
-    program = intcode.program
     [a, b, c] = ins.params
 
-    a_val = fetch(program, a)
-    b_val = fetch(program, b)
-    c_val = fetch(program, c)
+    a_val = fetch(intcode, a)
+    b_val = fetch(intcode, b)
+    c_val = fetch(intcode, c)
 
     new_val = if a_val < b_val, do: 1, else: 0
 
@@ -244,19 +228,18 @@ defmodule Intcode do
       IO.puts("STORE #{new_val} at #{inspect(c)} (#{c_val})")
     end
 
-    new_program = List.replace_at(program, c_val, new_val)
+    new_program = write(intcode, c, new_val)
 
     %{intcode | program: new_program, idx: intcode.idx + ins.size}
   end
 
   # EQ
   defp execute(intcode, ins = %Instruction{opcode: 08}) do
-    program = intcode.program
     [a, b, c] = ins.params
 
-    a_val = fetch(program, a)
-    b_val = fetch(program, b)
-    c_val = fetch(program, c)
+    a_val = fetch(intcode, a)
+    b_val = fetch(intcode, b)
+    c_val = fetch(intcode, c)
 
     new_val = if a_val == b_val, do: 1, else: 0
 
@@ -265,14 +248,50 @@ defmodule Intcode do
       IO.puts("STORE #{new_val} at #{inspect(c)} (#{c_val})")
     end
 
-    new_program = List.replace_at(program, c_val, new_val)
+    new_program = write(intcode, c, new_val)
 
     %{intcode | program: new_program, idx: intcode.idx + ins.size}
+  end
+
+  # OFFSET
+  defp execute(intcode, ins = %Instruction{opcode: 09}) do
+    relative_base = intcode.relative_base
+    [a] = ins.params
+
+    a_val = fetch(intcode, a)
+
+    if Keyword.fetch!(intcode.opts, :debug) do
+      IO.puts("OFFSET #{relative_base} by #{inspect(a)} (#{a_val})")
+    end
+
+    %{intcode | relative_base: relative_base + a_val, idx: intcode.idx + ins.size}
   end
 
   # HALT
   defp execute(intcode, %Instruction{opcode: 99}), do: %{intcode | halted: true}
 
-  defp fetch(_vals, {:immediate, value}), do: value
-  defp fetch(program, {:position, value}), do: Enum.at(program, value)
+  defp fetch(_intcode, {:immediate, value}), do: value
+  defp fetch(intcode, {:position, value}), do: Enum.at(intcode.program, value, 0)
+
+  defp fetch(intcode, {:relative, value}) do
+    Enum.at(intcode.program, intcode.relative_base + value, 0)
+  end
+
+  defp write(_intcode, {:immediate, _pos}, _val), do: :error
+  defp write(intcode, {:position, pos}, val), do: safe_replace(intcode, pos, val)
+
+  defp write(intcode, {:relative, pos}, val) do
+    safe_replace(intcode, pos + intcode.relative_base, val)
+  end
+
+  defp safe_replace(%{program: program}, idx, val) when idx < length(program) do
+    List.replace_at(program, idx, val)
+  end
+
+  defp safe_replace(intcode, idx, val) do
+    program = intcode.program
+    extension = List.duplicate(0, idx - length(program) + 1)
+
+    write(%{intcode | program: program ++ extension}, {:position, idx}, val)
+  end
 end
